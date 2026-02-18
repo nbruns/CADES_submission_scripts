@@ -115,6 +115,16 @@ else
   DOMAIN_FILE="domain.lnd.r05_RRSwISC6to18E3r5.240328_cavm1d_toposafe.nc" # topo safe, use for both
 fi
 
+CREATE_CROP_LANDUNIT_FLAG=.true.
+LANDUSE_PATH=""
+# baseline run is missing additions for topounits. Causes crash, must addd back
+if [[ "$VARIANT" == "baseline" ]]; then
+  DOMAIN_FILE="domain.lnd.r05_RRSwISC6to18E3r5.240328_cavm1d.nc"
+  CREATE_CROP_LANDUNIT_FLAG=.false.
+  LANDUSE_PATH="/gpfs/wolf2/cades/cli185/world-shared/e3sm/inputdata/lnd/clm2/surfdata_map/landuse.timeseries_0.5x0.5_hist_simyr1850-2015_c240308_cavm1d.nc"
+fi
+
+
 
 # set met specific information
 case "$MET_TAG" in
@@ -136,16 +146,16 @@ esac
 ############ ############ ############
 ## 2. create new case dir
 ############ ############ ############
- $MODELROOT/E3SM/cime/scripts/create_newcase \
-  --case "${DAILY_OUTPUT_CASE_DIR}" \
-  --mach cades-baseline \
-  --compset ICB20TRCNPRDCTCBC \
-  --res ELM_USRDAT \
-  --mpilib openmpi-amanzitpls \
-  --walltime 24:00:00 \
-  --handle-preexisting-dirs u \
-  --project e3sm \
-  --compiler gnu
+ # $MODELROOT/E3SM/cime/scripts/create_newcase \
+ #  --case "${DAILY_OUTPUT_CASE_DIR}" \
+ #  --mach cades-baseline \
+ #  --compset ICB20TRCNPRDCTCBC \
+ #  --res ELM_USRDAT \
+ #  --mpilib openmpi-amanzitpls \
+ #  --walltime 24:00:00 \
+ #  --handle-preexisting-dirs u \
+ #  --project e3sm \
+ #  --compiler gnu
 
 cd "${DAILY_OUTPUT_CASE_DIR}"
 
@@ -163,6 +173,8 @@ cd "${DAILY_OUTPUT_CASE_DIR}"
 ./xmlchange STOP_N="${RERUN_NYEARS}"
 ./xmlchange REST_OPTION=nyears
 ./xmlchange REST_N=5   # or 5/10, but 1 is safest for long daily runs
+./xmlchange GET_REFCASE=TRUE
+
 
 ############ ############ ############
 ## 4) define history tapes with daily
@@ -206,7 +218,7 @@ fi
 echo "
 &clm_inparm
  use_IM2_hillslope_hydrology = ${USE_IM_2_FLAG}
- create_crop_landunit = .true.
+ create_crop_landunit = ${CREATE_CROP_LANDUNIT_FLAG}
  hist_empty_htapes = .true.
  hist_dov2xy = .true.
  ! Tape 1: monthly (test)
@@ -220,7 +232,7 @@ echo "
  hist_fincl2 = 'GPP','FCH4'
 
  fsurdat = '${SURF_FILE}'
- flanduse_timeseries = ''
+ flanduse_timeseries = '${LANDUSE_PATH}'
  stream_fldfilename_ndep = '/gpfs/wolf2/cades/cli185/world-shared/e3sm/inputdata/lnd/clm2/ndepdata/fndep_elm_cbgc_exp_simyr1849-2101_1.9x2.5_ssp245_c240903.nc'
  nyears_ad_carbon_only = 25
  spinup_mortality_factor = 10
@@ -237,7 +249,8 @@ if [ "${USE_IM_3_FLAG}" = ".true." ]; then
   echo "paramfile = '\$DIN_LOC_ROOT/lnd/clm2/paramdata/clm_params_ngeea-im3_c240822.nc'" >> user_nl_elm
 fi
 
-./case.setup
+./case.setup --reset # use for debugging
+# ./case.setup 
 
 echo "
 string(APPEND CPPDEFS " -DCPL_BYPASS")
